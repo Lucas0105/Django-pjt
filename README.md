@@ -8,10 +8,10 @@
 <br/>    
 
 # Django-02
-- Namespace
-- Django Model
-- Queryset API
-- CRUD with view functions
+- [Namespace](#namespace)
+- [Django Model](#django-model)
+- [Queryset API](#queryset-api)
+- [CRUD with view functions](#crud-with-view-functions)
 
 <br/>
 
