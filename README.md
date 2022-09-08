@@ -462,7 +462,7 @@ def login(request):
   if request.method == 'POST':
     form = AuthenticationForm(request, request.POST)
     if form.is_valid():
-      auth_login(request, form.getuser())
+      auth_login(request, form.get_user())
       return redirect('articles:index')
   else:
     form = AuthenticationForm()
