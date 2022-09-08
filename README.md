@@ -23,6 +23,14 @@
 <br/>
 
 
+# Django-04
+- [The Django authentication system (사전설정)](#the-django-authentication-system)
+- [Authentication in Web requests](#authentication-in-web-requests)
+- [Authentication with User](#authentication-with-user)
+- [Limiting access to logged-in users](#limiting-access-to-logged-in-users)
+
+<br/>
+
 ## DTL Syntax
 
 ### Variable
@@ -392,7 +400,239 @@ def delete(request, pk):
 def index(request):
   pass
 ```
+## The Django authentication system
+- setting.py에 INSTALLED_APPS에서 필수 구성을 확인할 수 있음
+- Authentication (인증) : 신원 확인, 사용자가 자신이 누구인지 확인하는 것
+- Authorization (권한, 허가) : 권한 부여, 인증된 사용자가 수행할 수 있는 작업을 결정
 
+### 사전 설정
+- cmd : accounts app 생성, !!!! 이름을 accounts로 생성해 줘야 함 !!!!
+```
+python manage.py startapp accounts
+```
+
+- settings.py
+```
+INSTALLED_APPS = [
+  'accounts',
+]
+```
+
+- project의 urls.py에 include해줘야 함
+
+
+### substituting a custom User model
+- Custom User Model : User Model을 필수적으로 대체해줘야 함, 프로젝트 처음에 진행할 것을 권장
+- - 그 이유는 기본 제공해주는 User Model이 원하는 기능을 만들기 적합하지 않을 수 있기 때문에
+
+- accounts/models.py 대체하기
+```
+from django.contrib.auth.models import AbstractUser
+
+class User(AbstractUser):
+  pass
+```
+
+- settings.py 파일에 AUTH_USER_MODEL 입력
+```
+AUTH_USER_MODEL = 'accounts.User'
+```
+
+- accounts/admin.py에 커스텀 User 모델 등록
+```
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from .models import User
+
+admin.site.register(User, UserAdmin)
+```
+
+## Authentication in Web requests
+### Login
+- Session을 Create하는 과정
+
+- - accounts/urls.py에 login 경로 설정
+- - templates에 html 파일 만들어주기
+- - accounts/views.py에 login 함수(db에 세션 등록, 클라이언트에 세션 등록)
+```
+from django.contrib.auth.forms import AuthenticationsForm
+from django.contrib.auth import login as auth_login
+
+def login(request):
+  if request.method == 'POST':
+    form = AuthenticationForm(request, request.POST)
+    if form.is_valid():
+      auth_login(request, form.getuser())
+      return redirect('articles:index')
+  else:
+    form = AuthenticationForm()
+    
+  context = {
+    'form' : form
+  }
+  
+  return reder(request, 'accounts/login.html', context)
+```
+
+- 템플릿에서 유저 정보 출력하기 : context processors에 auth가 등록되어 있기 때문에 가능
+```
+  {{ user }}
+```
+
+### Logout
+- session data를 에서 삭제
+- 클라이언트의 쿠키에서 sessionid를 삭제
+
+```
+from djnago.contrib.auth import logout as auth_logout
+
+def logout(request):
+    auth_logout(request)
+    return redirect('articles:index')
+```
+
+## Authentication with User
+### Custom user
+- 커스텀 해줘야 하는 form(UserCreationForm, UserChangeForm)
+
+- - accounts/form.py
+```
+  from django.contrib.auth import get_user_model
+  from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+  
+  class CustomUserCreationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+      model = get_user_model()
+      
+  class CustomUserChangeForm(UserChangeForm):
+    Class Meta(UserChangeForm.Meta):
+      model = get_user_model()
+```
+
+
+### 회원 가입
+
+- UserCreateForm(username, password1, password2)
+```
+from django.contrib.auth.forms import CustomUserCreationForm
+
+def signup(request):
+  if request.method == 'POST':
+    form = UserCreationForm(request.POST)
+    if form.is_valid():
+      form.save()
+      # 회원가입 후 곧바로 로그인 하기
+      # user = form.save()
+      # auth_login(request, user)
+      # auth_login(request, form.user) 가능
+      
+      return redirec('articles:index')
+  else:
+    form = UserCreationForm()
+  context = {
+    'form' : form,
+  }
+  return render(request, 'accounts/signup.html', context)
+```
+
+### 회원 탈퇴
+- accounts/views.py
+```
+def delete(request):
+  request.user.delete()   # 회원 탈퇴   아래와 순서가 변경되면 안됨
+  auth_logout(request)    # 로그아웃 => 세션 정보 삭제
+  return redirect('articles:index')
+```
+
+### 회원정보 수정
+- accounts/forms.py
+```
+  class CustomUserChangeForm(UserChangeForm):
+    class Meta(UserChangeForm.Meta):
+      model = get_user_model()
+      fields = ('email', 'first_name', 'last_name',)
+```
+
+- accounts/views.py
+```
+def update(request):
+  if request.method == 'POST':
+    form = CustomUserChangeForm(request.POST, instance=request.user)
+    if form.is_valid():
+      form.save()
+      return redirect('articles:index')
+  else:
+    form = CustomUserChangeForm(instance = request.user)
+  context = {
+    'form' : form,
+  }
+  return render(request, 'accounts/update.html', context)
+```
+
+### 비밀번호 변경
+```
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
+
+def change_password(request):
+  if request.method == 'POST':
+    form = PasswordChangeForm(request.user, request.POST)
+    if form.is_valid()
+      form.save()       # 로그인 유지가 되지 않음 세션 값이 변경되기 때문에
+      # update_session_auth_hash(request, form.user)   로그인 유지하면서 비밀번호 변경하기
+      return redirect('articles:index')
+      
+  context = {
+    'form' : form,
+  }
+  
+  return render(request, 'accounts/change_password.html', context)
+
+```
+
+## Limiting access to logged-in users
+
+### is_authenticated
+- 사용자가 인증 되었는지 여부 => 모든 User 인스턴스에 대해 항상 True 권한을 확인하지 않음
+
+- templates
+```
+  {{% if request.user.is_authenticated %}}
+```
+
+- views
+```
+  if request.user.is_authenticated:
+```
+
+### login_required
+- 로그인 하지 않았을 시 settings.py 의 LOGIN_URL 문자열 주소로 redirect : 기본값은 /accounts/login/
+
+```
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def create(request):
+  pass
+```
+
+- 로그인 하지 않았을 때 권한이 필요한 URL로 강제 접속 시도 했을 시 로그인 페이지로 redirect 되고 인증 성공시 이동할 URL로 쿼리 문자열을 함께 전송함
+```
+/accounts/login/?next=?/articles/create/
+```
+
+- next 쿼리를 적용하거나 미적용할 수 있음
+```
+  return redirect(request.GET.get('next') or 'articles:index')
+```
+
+### delete에서 발생하는 문제점
+- delete에 강제 접근 시 로그인 페이지로 이동 => 로그인 했을 시 get으로 delete에 접근하기 때문에 405에러를 발생 시킴
+- - @login_required 데코레이터는 GET method 에서만 사용
+- - is_authenticated 속성 값을 통해 처리
+```
+if request.user.is_authenticated:
+```
 
 
 ## 기타
