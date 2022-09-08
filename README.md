@@ -15,6 +15,14 @@
 
 <br/>
 
+# Django-03
+- [Django Form](#django-form)
+- [Django ModelForm](#django-modelform)
+- [View decorators](#view-decorators)
+
+<br/>
+
+
 ## DTL Syntax
 
 ### Variable
@@ -264,6 +272,128 @@ article.save()
 article = Article.objects.get(pk=1)
 article.delete()
 ```
+
+## Django Form
+### Form Class 선언
+- 앱 폴더에서 forms.py 생성 후 선언
+```
+from django import forms
+
+class ArticleForm(forms.Form):
+  title = forms.CharField()
+```
+
+### Form with view function
+- new view 함수 변경
+```
+from .forms import ArticleForm
+
+def new(request):
+  form = ArticleForm()
+  constext = {
+    'form' : form,
+  }
+  return render(request, 'articles/new.html', context)
+```
+
+- new 템플릿 업데이트 => inpuyt과 label 태그 렌더링됨
+```
+{{ forms.as_p }}
+```
+
+- Form fields : 입력에 대한 유효성 검사 로직을 처리
+- Widgets : HTML input 요소 렌더링을 담당 (단순한 출력 부분)
+```
+title = forms.CharField(widget=forms.Textarea(
+   attrs={
+    'class' : 'my-title',
+    'placeholder' : 'Enter the title',
+   }
+))
+```
+
+## Django ModelForm
+- Model => Form에 맵핑
+
+### ModelForm 선언
+```
+from django import forms
+from .models import Article
+
+class ArticleForm(forms.ModleForm):
+  
+  class Meta:
+    model = Article
+    fields = '__all__'
+    #  exclude = ('title', )    제외하고 모든 필드
+    #  fields = ('title', 'content',)    title과 content 필드만
+```
+
+### ModelForm with view finctions
+- CREATE
+```
+def create(request):
+  if request.methd == 'POST':
+    form = ArticleForm(request.POST)
+
+    if form.is_valid():
+      article = form.save()
+      return redirect('articles:detail', article.pk)
+  else:
+    form = ArticleForm()
+    
+  context = {
+    'form': form,
+  }
+  
+  return render(request, 'articles/new.html', context)
+```
+
+- UPDATE : instance는 수정 대상이 되는 객체, request.POST는 사용자가 전송한 데이터
+```
+def update(request, pk):
+  article = Article.objects.get(pk=pk)
+   
+  if request.methd == 'POST':
+    form = ArticleForm(request.POST, instance=article)
+    
+    if form.is_valid():
+      form.save()
+      return redirect('articles:detail', article.pk)
+    else:
+      form = ArticleForm(instance=article)
+      
+    context = {
+      'form': form,
+      'article': article,
+    }
+```
+
+- Errors : is_valid() 함수에서 False 일 경우 form에 error 내용이 딕셔너리 형태로 저장됨
+```
+print(f'에러: {form.errors}')
+```
+
+## View decorators
+### Allowed HTTP methods
+- error : 적절한 method가 아닐 때 => 405 Method Not Allowed
+```
+from django.views.decorators.http import require_http_methods
+
+@require_http_methods(['GET', 'POST'])
+def create(request):
+  pass
+  
+@require_POST
+def delete(request, pk):
+  pass
+
+@require_safe
+def index(request):
+  pass
+```
+
+
 
 ## 기타
 데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
