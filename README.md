@@ -15,7 +15,7 @@
 
 <br/>
 
-# Django-03
+# Django-03(Form)
 - [Django Form](#django-form)
 - [Django ModelForm](#django-modelform)
 - [View decorators](#view-decorators)
@@ -23,11 +23,18 @@
 <br/>
 
 
-# Django-04
+# Django-04(Accounts)
 - [The Django authentication system (사전설정)](#the-django-authentication-system)
 - [Authentication in Web requests](#authentication-in-web-requests)
 - [Authentication with User](#authentication-with-user)
 - [Limiting access to logged-in users](#limiting-access-to-logged-in-users)
+
+<br/>
+
+# Django-05(Database)
+- [ForeignKey](#foreignkey)
+- [Related manager](#related-manager)
+- [comment create](#comment_create)
 
 <br/>
 
@@ -634,6 +641,51 @@ def create(request):
 if request.user.is_authenticated:
 ```
 
+## ForeignKey
+
+ForeignKey(to, on_delete, **options) : N:1 관계를 나타냄
+```
+article = models.ForeignKey(Article, on_delete=models.CASCADE)
+
+article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='comments')
+```
+=> db에 article_id로 만들어짐
+- CASCADE : 부모 객체가 삭제 됐을 때 이를 참조하는 객체도 삭제
+- N:1 관계
+- related_name 속성을 사용해 역참조 시 사용할 이름을 설정해줄 수 있음 commten_set => comments
+
+## Related manager
+
+역참조 : N:1 에서 1이 N을 참조하는 상황
+```
+article.comment_set.method()
+article.comment_set.all()
+```
+Article 모델이 Comment 모델을 역참조
+
+
+## Comment_create
+- forms.py
+```
+class CommentForm(form.ModelForm):
+  
+  class Meta:
+    model = Comment
+    exclude = ('article',)
+```
+
+- views
+```
+def comments_create(request, pk):
+  article = Article.objects.get(pk=pk)
+  comment_form = CommentForm(request.POST)
+  if comment_form.is_valid():
+    comment = comment_form.save(commit = False)
+    comment.article = pk
+    comment.save()
+    return redirect()
+
+```
 
 ## 기타
 데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
@@ -641,4 +693,10 @@ if request.user.is_authenticated:
 
 
 pk는 get으로만 조회
-filter는 빈셋또는 셋으로 감싸서 주기 때문에 에러를 발생시키지 않고 한번 더 set에 들어가야 하는 문제가 있기 때문
+filter는 빈셋또는 셋으로 감싸서 주기 때문에 에러를 발생시키지 않고 한번 더 set에 들어가야 하는 문제가 있기 때문      
+
+<br/>
+사용할 수 있는 명령어 확인
+```
+dir(객체)
+```
