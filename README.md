@@ -510,10 +510,13 @@ def logout(request):
   class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
       model = get_user_model()
+      fields = '__all__'
+      # fields = UserCreationForm.Meta.fields + ('email',)
       
   class CustomUserChangeForm(UserChangeForm):
     Class Meta(UserChangeForm.Meta):
       model = get_user_model()
+      fields = '__all__'
 ```
 
 
@@ -521,11 +524,11 @@ def logout(request):
 
 - UserCreateForm(username, password1, password2)
 ```
-from django.contrib.auth.forms import CustomUserCreationForm
+from .form import CustomUserCreationForm
 
 def signup(request):
   if request.method == 'POST':
-    form = UserCreationForm(request.POST)
+    form = CustomUserCreationForm(request.POST)
     if form.is_valid():
       form.save()
       # 회원가입 후 곧바로 로그인 하기
@@ -535,7 +538,7 @@ def signup(request):
       
       return redirec('articles:index')
   else:
-    form = UserCreationForm()
+    form = CustomUserCreationForm()
   context = {
     'form' : form,
   }
