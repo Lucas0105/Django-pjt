@@ -38,6 +38,14 @@
 
 <br/>
 
+# Django-06(Files)
+- [Managing static files](#managing-static-files)
+- [Image Upload](#image-upload)
+- [comment create](#comment_create)
+
+<br/>
+
+
 ## DTL Syntax
 
 ### Variable
@@ -689,6 +697,38 @@ def comments_create(request, pk):
     return redirect()
 
 ```
+
+## Managing static files
+
+### static 설정
+- settings.py
+```
+# app/static/ 디렉토리 경로 외에 추가적인 정적 파일 경로 정의
+STATICFILES_DIRS = [
+  BASE_DIR / 'static',
+]
+```
+
+
+### templates static file 적용
+- html 파일
+```
+{% load static %}
+
+<img src = {% static 'app_name/img.png' %} alt=''>
+```
+
+### 배포
+- settings.py 설정
+```
+DEBUG = False
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+```
+
+## Image Upload
+
 
 ## 기타
 데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
