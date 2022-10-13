@@ -41,7 +41,8 @@
 # Django-06(Files)
 - [Managing static files](#managing-static-files)
 - [Image Upload](#image-upload)
-- [comment create](#comment_create)
+- [Image Resizing](#image-resizing)
+- [QuerySet API Advanced](#queryset-api-advanced)
 
 <br/>
 
@@ -711,6 +712,11 @@ STATICFILES_DIRS = [
 
 
 ### templates static file 적용
+- static 파일 경로(app_name 폴더로 나눠주는 이유는 namespace를 위해서)
+```
+app_name/static/app_name/files
+```
+
 - html 파일
 ```
 {% load static %}
@@ -724,11 +730,252 @@ STATICFILES_DIRS = [
 DEBUG = False
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+```
 
+- cmd에 정적파일을 한 곳에 모아주는 명령어 실행
+```
+python manage.py collectstatic
 ```
 
 ## Image Upload
 
+### ImageField()
+- 이미지 업로드에 사용하는 모델 필드
+
+- settings.py
+```
+# 파일 경로
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# 미디어 파일을 처리하는 URL
+MEDIA_URL = '/media/'
+```
+
+- project/urls.py
+```
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+  ...
+] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
+```
+
+- models (upload_to : 이미지 저장 경로를 추가)
+```
+# media/images/FILES
+image = models.ImageField(blank=True, upload_to='images/')
+
+
+# media/2022/10/13/FILES
+image = models.ImageField(blank=True, upload_to='%Y/%m/%d/')
+
+
+# 두개의인자를 받음, instance는 pk가 아직 없을 수 있음 | ex) 회원가입
+def articles_image_path(instance, filename):
+  return f'images/{instance.user.username}/{filename}'
+  
+  
+# media/images/user_name/FILES
+def Article(models.Model):
+  image = models.ImageField(blank=True, upload_to=articles_image_path)
+```
+
+
+### CREATE
+- models.py
+```
+class Article(models.Model):
+  # blank는 '' 빈칸 입력을 가능하도록 설정, 문자열 기반 필드는 null 옵션을 피해야 함
+  image = models.ImageField(blank=True)
+```
+
+- ImageField를 사용하기위해 Pillow 라이브러리 설치
+```
+pip install Pillow
+```
+
+- html의 form에 enctype 속성 추가
+```
+<form action='' method='POST' enctype='multipart/form-data'>
+```
+
+- views(FILES를 추가해줘야 함 
+```
+  form = ArticleForm(request.POST, request.FILES)
+```
+
+### READ
+- html (이미지 파일을 보여주기 위해서 url로 접근하여 이미지를 받아와야 함)
+```
+<img src={{ article.image.url }} alt = {{ article.image }}>
+```
+
+### UPDATE
+- html form 태그에 enctype='multipart/form-data' 추가
+
+- views
+```
+form = ArticleForm(request.POST, request.FILES, instance=article)
+```
+
+## Image Resizing
+
+### imagekit
+- 원본 이미지를 조정할 수 있는 모듈
+
+- 설치 cmd
+```
+pip install django-imagekit
+```
+
+- settings.py
+```
+INSTALLED_APPS = [
+  'imagekit',
+  ...
+]
+```
+
+### 원본 이미지를 저장하지 않는 방법
+- models
+```
+from imagekit.processors import Thumbnail
+from imagekit.models import ProcessedImageField
+
+class Article(models.Model):
+  image = ProcessedImageField(
+    blank=True,
+    upload_to='thumbnails/',
+    processors=[Thumbnail(200, 300)],
+    format='JPEG',
+    options={'quality': 80},
+  )
+
+```
+- 참고 imagekit     
+https://github.com/matthewwithanm/pilkit
+
+- html
+```
+<img src={{ article.image.url }} alt={{ article.image }}>
+```
+
+### 원본 이미지 저장
+```
+from imagekit.processors import Thumbnail
+from imagekit.models import ImageSpecField
+
+image = models.ImageField(blank=True)
+image_thumbnail = ImageSpecField(
+  source='image',
+  processors=[Thumbnail(200, 300)],
+  format='JPEG',
+  options={'quality': 80},
+```
+
+- html
+```
+# html 태그에서 thumbnail 부를 때 썸네일 사진이 만들어짐
+<img src={{ article.image_thumbnail.url }} alt={{ article.image_thumbnail }}>
+```
+
+
+## QuerySet API Advanced
+
+### 정렬 order_by
+```
+# 오름차순, 내림차순
+User.objects.order_by('age', '-balance).values('first_name', 'age')
+
+# 랜덤
+User.objects.order_by('?').values('first_name', 'age')
+```
+
+### distinct 중복 없이
+```
+User.objects.distinct().values('country')
+```
+
+### Field lookups
+- gte
+```
+# 30살 이상
+User.objects.filter(age__gte=30)
+```
+
+- contains
+```
+# 호를 포함하고 있는 이름
+User.object.filter(first_name__contains='호')
+```
+
+- startswith
+```
+User.object.filter(phone__startswith='011-')
+```
+
+- endswith
+```
+# 준으로 끝나는 사람의 이름
+User.object.filter(first_name__endswith='준')
+```
+
+- in
+```
+# 경기도 혹은 강원도에 사는
+User.object.filter(country__in=['경기도', '강원도'])
+```
+
+- exclude
+```
+# 경기도 혹은 강원도에 살지 않는
+User.object.exclude(country__in=['경기도', '강원도'])
+```
+
+- limit
+```
+나이가 가장 어린 10명
+User.object.order_by('age')[:10]
+```
+
+- 참고
+https://docs.djangoproject.com/en/3.2/ref/models/querysets/#field-lookups
+
+### Q
+- 이거나 or | 에 사용됨
+```
+from django.db.models import Q
+
+User.objects.filter(Q(first_name__contains='정'), Q(age=30) | Q(last_name='김'))
+```
+
+### Aggregation() 
+- 특정 필드 전체를 계산할 때 사용 (Grouping data)
+```
+from django.db.models import Sum, Max, Avg
+
+User.objects.aggregate(Sum('balance'))
+
+```
+
+### annotate()
+- 쿼리의 각 항목에 대한 요약 값을 계산 GROUP BY에 해당
+```
+# 각 지역별로 몇 명씩 살고 있는지
+User.objects.values('country').annotate(Count('country'), avg_balance=AVG('balance'))
+```
+
+- N:1의 경우
+```
+# 전체 댓글 조회, 2000-01-01 이전에 작성된 댓글 조회
+Article.objects.annotate(
+  number_of_comment=Count('comment'),
+  pub_date=Count('comment', filter=Q(comment__created_at__lte='2000-01-01'))
+```
+
+- 참고
+https://docs.djangoproject.com/en/3.2/ref/models/querysets/#aggregation-functions
 
 ## 기타
 데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
