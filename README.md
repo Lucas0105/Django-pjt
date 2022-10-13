@@ -46,6 +46,11 @@
 
 <br/>
 
+# Django-07(Many to many relationship)
+- [Many to many relationship](#many-to-many-relationship)
+
+<br/>
+
 
 ## DTL Syntax
 
@@ -976,6 +981,65 @@ Article.objects.annotate(
 
 - 참고
 https://docs.djangoproject.com/en/3.2/ref/models/querysets/#aggregation-functions
+
+
+## Many to many relationship
+### 중개 모델
+- doctor, patient가 정의되어 있음
+```
+class Reservation(models.Model):
+  doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
+  patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+```
+
+### ManyToManyField
+- 어느 테이블에 상대방 클래스를 정의해도 상관없음 
+```
+class Patient(models.Model):
+  doctors = models.ManyToManyField(Doctor, related_name='patients')
+```
+
+- 접근 방법
+```
+# 생성
+patient1.doctors.add(doctor1)
+doctor2.patient_set.add(patient2)
+
+#삭제
+doctor2.patient_set.remove(patient1)
+patient1.doctors.remove(doctor1)
+
+# 환자의 의사 목록
+patient1.doctors.all()
+# 의사의 환자 목록
+doctor2.patient.all()
+```
+
+### through
+- 중개테이블에 추가 데이터를 사용하는 경우
+```
+class Patient(models.Model):
+  doctors = models.ManyToManyField(Doctor, related_name='patients', through='Reservation')
+  
+class Reservation(models.Model):
+  doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
+  patient = models.ForeignKey(Doctor, on_delete=models.CASCADE)
+  symptom = models.TextField()
+  
+# 생성
+patient1.doctors.add(doctor1, through_defaults={'symptom':'flu'})
+
+```
+
+### symmetrical
+- 동일한 모델을 가리키는 정의에서만 사용 (기본값 : True)
+```
+# 대칭 : False   => Follow 기능
+class Person(models.Model):
+  friends = models.ManyToManyField('self', symmetrical=False)
+```
+
+
 
 ## 기타
 데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
