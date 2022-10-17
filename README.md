@@ -51,6 +51,14 @@
 
 <br/>
 
+# Django-08(REST API)
+- [REST API](#rest-api)
+- [Response JSON](#response-json)
+- [REST framework(Single Model)](#rest-framework(single-model))
+- [REST framework(N:1 Model)](#rest-framework(N:1-model))
+
+<br/>
+
 
 ## DTL Syntax
 
@@ -1040,17 +1048,199 @@ class Person(models.Model):
 ```
 
 
+## REST API
+- 자원을 정의하고 자원에 대한 주소를 지정하는 방법의 모음
+
+### REST 정리
+- 자원을 식별(URI)
+- 자원에 대한 행위(HTTP Methods)
+- 자원을 표현(JSON)
+
+
+## Response JSON
+### JsonResponse()
+- 장고가 기본적으로 제공하는 response 객체
+```
+from django.http.response import JsonResponse
+
+def article_json_1(request):
+  articles = Article.objects.all()
+  articles_json = []
+
+  for article in articles:
+    article_json.append(
+      {
+        key : value,
+        ...
+      }
+    )
+  return JsonResponse(articles_json, safe=False)
+```
+
+### HttpResponse()
+- 장고가 기본적으로 제공하는 response 객체
+
+```
+from django.http.response import HttpResponse
+from django.core import serializers
+
+def article_json_2(request):
+  articles = Article.objects.all()
+  data = serializers.serialize('json', articles)
+  
+  return HttpResponse(data, content_type='application/json')
+
+```
+
+### Serialization
+- 나중에 다시 쉽게 사용할 수 있는 포맷으로 변환하는 과정
+
+
+### Django Rest framework(DRF)
+- Django에서 Restful API 서버를 쉽게 구축할 수 있도록 도와주는 오픈소스 라이브러리
+- https://www.django-rest-framework.org/
+
+- 설치
+```
+pip install djangorestframework
+```
+
+- settings.py
+```
+INSTALLED_APPS = [
+  'rest_framework',
+]
+```
+
+- app_name/serializers.py
+
+```
+from rest_framework import serializers
+from .models import Article
+
+class ArticleSerializer(serializers.ModelSerializer):
+  class Meta:
+    model = Article
+    fields = '__all__'
+```
+
+- views.py
+```
+@api_view(['GET'])
+def article_json_3(request):
+  articles = Article.objects.all()
+  serializer = ArticleSerializer(articles, many=True)
+  return Response(serializer.data)
+```
+- - many=True 옵션은 QuerySet 또는 객체를 받는다는 의미
+
+## REST framework(Single Model)
+- 단일 모델의 data를 Serialization 하여 JSON으로 변환하는 방법
+
+### ModelSerializer
+- 게시글 생성(POST)
+```
+from rest_framework import status
+
+@api_view(['GET', 'POST'])
+def article_list(request):
+  serializer = ArticleSerializer(data=request.data)
+  if serializer.is_valid():
+    serializer.save(raise_exception=True)   # raise_exception=True 옵션을 통해 잘못된 요청에 400 응답코드를 전달할 수 있음
+    return Response(serializer.data, status=status.HTTP_201_CREATED)      # 만들었다는 응답코드 201
+  # return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)    # 유효성 검사 오류, 잘못된 요청에대한 응답코드 400
+```
+
+- 게시글 삭제(DELETE)
+```
+article.delete()
+return Response(status=status.HTTP_204_NO_CONTENT)
+```
+
+- 게시글 수정(PUT)
+```
+serializer = ArticleSerializer(instance_name, data=request.data)
+if serializer.is_valid(raise_exception=True):
+  serializer.save()
+  return Response(serializer.data)    # 200 ok 상태 코드 응답
+
+```
+
+## REST framework(N:1 Model)
+- N:1 관계에서 모델 data를 Serialization하여 JSON으로 변환하는 방법
+
+### 댓글 생성(POST)
+
+- serializers.py (외래키 필드를 읽기 전용 필드로 설정 : read_only_fields, 물리적으로 정의된 field만 적용) 
+```
+class CommentSerializer(serializers.ModelSerializer):
+  class Meta:
+    model = Comment
+    fields = '__all__'
+    read_only_fields = ('article',)
+    # 해당 필드를 유효성 검사에서 제외시키고 데이터 조회 시에는 출력
+```
+
+- views.py
+```
+@api_view(['GET'])
+def comment_create(request, article_pk):
+  article = Article.objects.get(pk=article_pk)
+  serializer = CommentSerializer(data=request.data)
+  if serializer.is_valid(raise_exception=True):
+    serializer.save(article=article)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+```
+
+### N:1 역참조 데이터 조회
+- 기존 필드 override
+- serializers.py
+```
+class ArticleSerializer(serializers.ModelSerializer):
+  comment_set = CommentSerializer(many=True, read_only=True)
+  # 변수 이름은 models.py의 related_name과 같아야 함, 설정하지 않았으면 _set이어야 함
+  # CommentSerializer의 field에 적용된 데이터들을 응답함
+  
+  comment_set = serialzers.PrimaryKeyRelatedField(many=True, read_only=True)
+  # 외래키의 rowid를 응답함
+  
+  class Meta:
+    model = Article
+    fields = '__all__'
+```
+
+- 새로운 필드 추가하기
+- - 작성된 댓글의 개수 추가하기
+```
+class ArticleSerializer(serializers.ModelSerializer):
+  comment_count = serializers.IntegerField(source='comment_set.count', read_only=True)
+  # source : 필드를 채우는데 사용할 속성의 이름
+```
 
 ## 기타
-데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
-한국 시간으로 변경한다는 의미는 UTC 시간을 한국 시간으로 변경하여 사용한다는 의미     
+### 장고의 시간
+- 데이터베이스에 저장될 때는 기본으로 UTC 시간으로 저장됨     
+- 한국 시간으로 변경한다는 의미는 UTC 시간을 한국 시간으로 변경하여 사용한다는 의미     
 
-
-pk는 get으로만 조회
-filter는 빈셋또는 셋으로 감싸서 주기 때문에 에러를 발생시키지 않고 한번 더 set에 들어가야 하는 문제가 있기 때문      
-
-<br/>
-사용할 수 있는 명령어 확인
+### json 파일을 load 하는 방법
+- database를 migrate한 후 실행
 ```
-dir(객체)
+python manage.py loaddata file_name.json
+```
+
+### shortcuts functions
+- https://docs.djangoproject.com/en/3.2/topics/http/shortcuts/
+- get_object_or_404() : get() 을 호출하지만 해당 객체가 없다면 404 에러코드를 응답함
+```
+from django.shortcuts import get_object_or_404
+
+article = get_object_or_404(Model_name, pk=article_pk)
+```
+
+- get_list_or_404() : filter() 의 결과를 반환하고 없을 땐 404 에러코드를 응답함
+```
+from django.shortcuts import get_list_or_404
+
+articles = get_list_or_404(Model_name)
+
 ```
