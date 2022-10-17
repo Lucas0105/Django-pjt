@@ -54,8 +54,8 @@
 # Django-08(REST API)
 - [REST API](#rest-api)
 - [Response JSON](#response-json)
-- [REST framework(Single Model)](#rest-framework(single-model))
-- [REST framework(N:1 Model)](#rest-framework(N:1-model))
+- [REST framework(Single Model)](#rest-frameworksingle-model)
+- [REST framework(N:1 Model)](#rest-frameworkn1-model)
 
 <br/>
 
