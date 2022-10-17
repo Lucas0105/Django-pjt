@@ -1126,6 +1126,8 @@ class ArticleSerializer(serializers.ModelSerializer):
 
 - views.py
 ```
+from rest_framework.response import Response
+
 @api_view(['GET'])
 def article_json_3(request):
   articles = Article.objects.all()
@@ -1145,8 +1147,8 @@ from rest_framework import status
 @api_view(['GET', 'POST'])
 def article_list(request):
   serializer = ArticleSerializer(data=request.data)
-  if serializer.is_valid():
-    serializer.save(raise_exception=True)   # raise_exception=True 옵션을 통해 잘못된 요청에 400 응답코드를 전달할 수 있음
+  if serializer.is_valid(raise_exception=True):
+    serializer.save()   # raise_exception=True 옵션을 통해 잘못된 요청에 400 응답코드를 전달할 수 있음
     return Response(serializer.data, status=status.HTTP_201_CREATED)      # 만들었다는 응답코드 201
   # return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)    # 유효성 검사 오류, 잘못된 요청에대한 응답코드 400
 ```
