@@ -790,7 +790,7 @@ def articles_image_path(instance, filename):
   
   
 # media/images/user_name/FILES
-def Article(models.Model):
+class Article(models.Model):
   image = models.ImageField(blank=True, upload_to=articles_image_path)
 ```
 
